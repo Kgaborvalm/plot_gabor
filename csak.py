@@ -11,21 +11,25 @@ def colorFader(c1,c2,c3,mix=0): #fade (linear interpolate) from color c1 (at mix
     c1=np.array(mpl.colors.to_rgb(c1))
     c2=np.array(mpl.colors.to_rgb(c2))
     c3 = np.array(mpl.colors.to_rgb(c3))
-    if mix < 0.9:
+    c4 = np.array(mpl.colors.to_rgb(str('#e303fc')))
+    if mix < 0.75:
         return mpl.colors.to_hex((1-mix)*c1 + mix*c2)
     else:
-        return mpl.colors.to_hex((1 - mix) * c2 + mix * c3)
+        if mix < 0.91:
+            return mpl.colors.to_hex((1 - mix) * c4 + mix * c3)
+        else:
+
+            return mpl.colors.to_hex(c4)
+
 
 c1='#F8BBD0'
 c2='#1976D2'
 c3 = '#F44336'
 
-phases = 5
+phases = 7
 d = {}
 
 # elérés
-
-
 for i in np.arange(phases)+1:
     DREAM_data = h5py.File(
         'C:\\Users\Csalad\Documents\Gabor\Kutatas\\futasok\\2023_10\\0.5MA_1keV\output\output_Phase' + str(i) + '.h5',
@@ -44,11 +48,36 @@ for i in np.arange(phases)+1:
     d['time'+str(i)]=d['grid'+str(i)].get('t')
     d['radius'+str(i)]=d['grid'+str(i)].get('r')
 
+    d['n_tot' + str(i)] = d['Eqsys' + str(i)].get('n_tot')
 
+    d['n_D0'+str(i)]=d['Eqsys'+str(i)].get('n_i')[:, 0, :]
+
+    d['n_D1'+str(i)]=d['Eqsys'+str(i)].get('n_i')[:, 1, :]
+
+    d['qR0' + str(i)] = d['Fluid' + str(i)].get('qR0')
+
+    d['n_Ar'+str(i)]=d['Eqsys'+str(i)].get('n_i')[:, 2:, :]
 
 locals().update(d)
 
 ##print(Eqsys1.get('T_cold'))
+
+
+'''#teljes argon sűrűség:
+n_Ar_tot = []
+for i in np.arange(phases )+1:
+    temp = []
+    for j in np.arange(19):
+        temp = temp + d['n_Ar'+str(i)][0,j,:]
+'''
+# biztonsági faktor:
+qR0 = d['qR0'+'1']
+for i in np.arange(phases-1)+2:
+    # egybe tenni a darabokat
+    qR0= np.vstack((qR0, d['qR0'+str(i)]))
+
+
+
 
 #idő állítás
 
@@ -72,7 +101,7 @@ for i in np.arange(phases )+1:
 #array vegi ismetlodest kszurjuk:
 #time_total = np.array(list(dict.fromkeys(time)))
 time_total= time_total * 1e3
-print(time_total)
+
 
 
 
@@ -149,6 +178,15 @@ for i in np.arange(phases-1)+2:
     d['j_re' + str(i)] = np.delete(d['j_re' + str(i)], -1, axis=0)
 
 
+# elektron sűrűség:
+n_total = np.delete(d['n_tot'+'1'], -1, axis=0)
+for i in np.arange(phases-1)+2:
+    # egybe tenni a darabokat
+    n_total = np.vstack((n_total, d['n_tot'+str(i)]))
+    # ha következőt teszünk egybe akkor ez levágja az azonos részt
+    d['n_tot' + str(i)] = np.delete(d['n_tot' + str(i)], -1, axis=0)
+
+
 
 #print(np.reshape(d['I_p2'],len(I_p2)))
 
@@ -157,7 +195,13 @@ for i in np.arange(phases-1)+2:
 
 times = [1,20, 30,50,75,100,150,400,450,500,550,600,700,1000,1796] # a hőmérséklet eséshez
 
-times = [1,20, 30,50,75,100,150,400,450,500,550,600,700,1000,1796,2100] # a hőmérséklet eséshez
+times = [1,20, 30,50,75,100,150,400,450,500,550,600,700,1000,1796,2100,2900] # a hőmérséklet eséshez
+
+
+times = [1,20, 30,50,75,100,150,400,450,550,600,700,1000,1796,2100,2900] # a ármsűrűséghez mix = 0.81 és 0.88
+
+times = [75,100,150,400,450,550,600,700,1000,1796,2100,2900] # a elfuto aramsűrűség mix = 0.75 és 0.91
+
 
 colors = ('#000000', '#00008B', '#000080', '#4B0082', '#800080', '#800000', '#FF0000', '#FF4500', '#FFA500',
           '#FFD700', '#d24dff',"#FF00FF","#00FF00","#00FFFF","#0000FF") #homerseklet eséshez
@@ -175,11 +219,11 @@ radius = (0, 0.2, 0.4, 0.6, 0.8, 1)
 
 #print(len(time_total))
 #print(len(I_p_total))
-print(len(Eeff_total[:,19]))
+#print(len(Eeff_total[:,19]))
 
-ezez= np.array([0,1,2,3])
 
-print(ezez[-1])
+
+
 #áramerősság plot
 plt.figure()
 plt.plot(time_total, I_p_total,label='Plazmaáram' ,color='#000000', linewidth=5)
@@ -193,7 +237,7 @@ plt.ylim(I_p_total.min()*0.9, I_p_total.max()*1.03)
 plt.title("Plazmaáram az idő függvényében", fontsize=FONTSIZE+20)
 
 
-#plt.axvline(x=time1_adj[999]*1e3, label="Argon belövés leállítása", color="red", linewidth=2, linestyle="--")
+plt.axvline(x=d['time1'][-1]*1e3, label="Argon belövés leállítása", color="red", linewidth=2, linestyle="--")
 ##plt.axvline(x=time2_adj[0]*1e3, label="Start of exponential temperature decay", color="orange", linewidth=4, linestyle="--")
 #plt.axvline(x=time3_adj[0]*1e3, label="Start of the self consistent temperature phase", color="blue", linewidth=4, linestyle="--")
 #plt.axvline(x=time4_adj[0]*1e3, label="Start of the runaway plateau phase", color="green", linewidth=4, linestyle="--")
@@ -228,8 +272,8 @@ plt.figure()
 for i in range(0, len(times)):
     plt.plot(norm_radius, j_re[times[i], :], label="Idő %5.2f ms" % (time_total[times[i]]), color=colorFader(c1,c2,c3,i/len(times)), linewidth=5)
 plt.autoscale(enable=True, axis='x', tight=True)
-plt.title("Elfutó elektron áramsűrűség a normált kissugár függvényében", fontsize=FONTSIZE+20)
-plt.ylabel('Áramsűrűség j_re [MA/m2]', size=FONTSIZE+10)
+plt.title("Elfutóelektron-áramsűrűség a normált kissugár függvényében", fontsize=FONTSIZE+20)
+plt.ylabel('Áramsűrűség j_re [MA/m$^2$]', size=FONTSIZE+10)
 plt.xlabel("Normált kissugár", size=FONTSIZE+10)
 plt.tick_params(axis='x', labelsize=FONTSIZE)
 plt.tick_params(axis='y', labelsize=FONTSIZE)
@@ -241,7 +285,7 @@ for i in range(0, len(times)):
     plt.plot(norm_radius, j_total[times[i], :], label="Idő %5.2f ms" % (time_total[times[i]]), color=colorFader(c1,c2,c3,i/len(times)), linewidth=5)
 plt.autoscale(enable=True, axis='x', tight=True)
 plt.title("Totális áramsűrűség a normált kissugár függvényében", fontsize=FONTSIZE+20)
-plt.ylabel('Áramsűrűség j_tot [MA/m2]', size=FONTSIZE+10)
+plt.ylabel('Áramsűrűség j_tot [MA/m$^2$]', size=FONTSIZE+10)
 plt.xlabel("Normált kissugár", size=FONTSIZE+10)
 plt.tick_params(axis='x', labelsize=FONTSIZE)
 plt.tick_params(axis='y', labelsize=FONTSIZE)
@@ -259,6 +303,92 @@ plt.tick_params(axis='x', labelsize=FONTSIZE)
 plt.tick_params(axis='y', labelsize=FONTSIZE)
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=FONTSIZE+10)
 
+#############
+########
+###
+#bztonsági faktor
+plt.figure()
+
+print(len(qR0[:, 0]))
+print(len(time_total[1:]))
+print(time_total[1:])
+plt.plot(time_total[1:], qR0[:, 0]/2.96,label="r = 0 m ",color=str(colors[1]), linewidth=5)
+plt.plot(time_total[1:], qR0[:, -1]/2.96,label="r = 1.1 m ",color=str(colors[-1]), linewidth=5)
+
+plt.autoscale(enable=True, axis='x', tight=True)
+plt.title("Biztonsági faktor az idő függvényében", fontsize=FONTSIZE+20)
+plt.ylabel('q', size=FONTSIZE+10)
+plt.xlabel("Idő t [ms]", size=FONTSIZE+10)
+#plt.ylim(0,10)
+plt.tick_params(axis='x', labelsize=FONTSIZE)
+plt.tick_params(axis='y', labelsize=FONTSIZE)
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=FONTSIZE+10)
+plt.axhline(y=1, label="q = 1", color="red", linewidth=2, linestyle="--")
+
+
+times = [0,400,1000,1400,1800,2999]
+#bztonsági faktor rdialisan
+plt.figure()
+print(len(norm_radius))
+print(len(qR0[times[1], :]))
+
+for i in range(0, len(times)):
+    plt.plot(norm_radius, qR0[times[i], :]/2.96,label ="Idő %5.2f ms" % (time_total[times[i]+1]),color=str(colors[i+3]), linewidth=5)
+plt.autoscale(enable=True, axis='x', tight=True)
+plt.title("Biztonsági faktor a normált kissugár függvényében", fontsize=FONTSIZE+20)
+plt.ylabel('q', size=FONTSIZE+10)
+plt.xlabel("Normált kissugár", size=FONTSIZE+10)
+#plt.ylim(0,10)
+plt.tick_params(axis='x', labelsize=FONTSIZE)
+plt.tick_params(axis='y', labelsize=FONTSIZE)
+plt.legend(loc='center left', bbox_to_anchor=(1, 0.5),fontsize=FONTSIZE+10)
+'''
+######## kezdeti profilok ######
+#totális áramsűrűség
+plt.figure()
+
+plt.plot(norm_radius, j_total[0, :]/1e6, label="Idő %5.2f ms" % (time_total[0]), color=str("blue"), linewidth=5)
+plt.autoscale(enable=True, axis='x', tight=True)
+plt.title("Kezdeti plazma áramsűrűség a normált kissugár függvényében", fontsize=FONTSIZE+20)
+plt.ylabel('Áramsűrűség j_p [MA/m2]', size=FONTSIZE+10)
+plt.xlabel("Normált kissugár", size=FONTSIZE+10)
+plt.tick_params(axis='x', labelsize=FONTSIZE)
+plt.tick_params(axis='y', labelsize=FONTSIZE)
+plt.legend(loc='center left', bbox_to_anchor=(0.65, 0.8),fontsize=FONTSIZE+10)
+
+
+#kezdeti hömerseklet plot
+plt.figure()
+plt.plot(norm_radius, Temp_total[0, :], label="Idő %5.2f ms" % (time_total[0]), color=str("blue"), linewidth=5)
+
+plt.yticks(size=FONTSIZE+10)
+plt.xlabel("Normált kissugár", size=FONTSIZE+10)
+plt.xticks(size=FONTSIZE+10)
+plt.legend(loc='center left', bbox_to_anchor=(0.65, 0.8),fontsize=FONTSIZE+10)
+plt.autoscale(enable=True, axis='x', tight=True)
+plt.title("Kezdeti hőmérséklet a normált kissugár függvényében", fontsize=FONTSIZE+20)
+plt.ylabel('Hőmérséklet [eV]', size=FONTSIZE+10)
+#plt.yscale('log')
+#plt.tick_params(axis='x', labelsize=FONTSIZE)
+#plt.tick_params(axis='y', labelsize=FONTSIZE)
+
+print(n_total[0,:])
+#kezdeti elektronsűrűség profil:
+plt.figure()
+plt.plot(norm_radius, n_total[ 0,:], label="Idő %5.2f ms" % (time_total[0]), color=str("blue"), linewidth=5)
+
+plt.yticks(size=FONTSIZE+10)
+plt.xlabel("Normált kissugár", size=FONTSIZE+10)
+plt.xticks(size=FONTSIZE+10)
+plt.legend(loc='center left', bbox_to_anchor=(0.65, 0.8),fontsize=FONTSIZE+10)
+plt.autoscale(enable=True, axis='x', tight=True)
+plt.title("Kezdeti elektronsűrűség a normált kissugár függvényében", fontsize=FONTSIZE+20)
+plt.ylabel('Elektronsűrűség [1/m^3]', size=FONTSIZE+10)
+#plt.yscale('log')
+#plt.tick_params(axis='x', labelsize=FONTSIZE)
+#plt.tick_params(axis='y', labelsize=FONTSIZE)
+
+'''
 plt.show()
 
 
